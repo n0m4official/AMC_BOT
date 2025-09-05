@@ -1,0 +1,10 @@
+{
+    "token": "[BOT TOKEN HERE]",
+    "guild_id": 123456789012345678,
+    "roles": {
+        "flagged": "Flagged",
+        "pending": "Pending",
+        "verified": "Verified Member"
+    },
+    "log_channel": 987654321098765432
+}

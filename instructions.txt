@@ -1,0 +1,123 @@
+https://discord.com/oauth2/authorize?client_id=1413294133652754454&permissions=268527616&response_type=code&redirect_uri=http%3A%2F%2Flocalhost&integration_type=0&scope=bot
+
+
+ANIME CLUB DISCORD BOT DEPLOYMENT GUIDE
+--------------------------------------
+
+BOT FOLDER STRUCTURE
+-------------------
+/home/youruser/animebot/
+│
+├─ main.py                   # Bot launcher
+├─ config.json               # Server settings, bot token, roles, log channel
+└─ cogs/
+    └─ membership_manager.py # Membership management commands
+
+COMMAND SUMMARY
+---------------
+!pending             → Shows all members in Pending role, paginated
+!approve @user       → Approves a pending member and moves them to Verified Member
+Bot automatically:
+  - Flags new accounts under 30 days old
+  - Sends admin notifications to the log channel
+
+---
+
+1️⃣ Server Requirements
+- VPS or rented server running Linux (Ubuntu 20.04+ recommended)
+- Python 3.10+ installed
+- Internet access to reach Discord servers
+
+---
+
+2️⃣ Installing Dependencies
+Open terminal on your server:
+
+sudo apt update
+sudo apt install python3 python3-pip -y
+pip3 install nextcord aiohttp
+
+---
+
+3️⃣ Configuring the Bot
+Edit `config.json` with your server-specific info:
+
+{
+    "token": "YOUR_BOT_TOKEN_HERE",
+    "guild_id": 123456789012345678,
+    "roles": {
+        "flagged": "Flagged",
+        "pending": "Pending",
+        "verified": "Verified Member"
+    },
+    "log_channel": 987654321098765432
+}
+
+Optional: Use an environment variable for the token:
+
+export DISCORD_TOKEN="YOUR_BOT_TOKEN_HERE"
+
+In main.py:
+
+import os
+token = os.getenv("DISCORD_TOKEN")
+bot.run(token)
+
+---
+
+4️⃣ Discord Developer Portal Setup
+1. Go to https://discord.com/developers/applications → your bot
+2. Enable Privileged Gateway Intent:
+   - SERVER MEMBERS INTENT
+3. OAuth2 → URL Generator
+   - Scopes: bot
+   - Permissions: Manage Roles, Send Messages, Embed Links, Read Message History
+   - Redirect URI: http://localhost (dummy)
+4. Copy generated URL → open in browser → add bot to server
+
+---
+
+5️⃣ Running the Bot
+
+Option A: Using screen (simple)
+1. sudo apt install screen
+2. screen -S animebot
+3. python3 main.py
+4. Detach: Ctrl+A then D
+5. Resume: screen -r animebot
+
+Option B: Using systemd (automatic, recommended)
+1. sudo nano /etc/systemd/system/animebot.service
+Paste:
+
+[Unit]
+Description=Anime Club Discord Bot
+After=network.target
+
+[Service]
+User=youruser
+WorkingDirectory=/home/youruser/animebot
+ExecStart=/usr/bin/python3 /home/youruser/animebot/main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+2. sudo systemctl enable animebot
+3. sudo systemctl start animebot
+4. sudo systemctl status animebot
+
+---
+
+6️⃣ Logging (optional)
+Log output to a file:
+
+python3 main.py >> bot.log 2>&1 &
+
+---
+
+7️⃣ Notes
+- Only users with Manage Roles can approve members
+- Admin notifications go to the configured log_channel
+- Do not share your bot token publicly
+- Future execs only need to edit config.json and run the bot
