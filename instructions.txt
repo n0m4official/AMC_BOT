@@ -15,8 +15,8 @@ BOT FOLDER STRUCTURE
 
 COMMAND SUMMARY
 ---------------
-!pending             → Shows all members in Pending role, paginated
-!approve @user       → Approves a pending member and moves them to Verified Member
+/pending             → Shows all members in Pending role, paginated
+/approve @user       → Approves a pending member and moves them to Verified Member
 Bot automatically:
   - Flags new accounts under 30 days old
   - Sends admin notifications to the log channel
@@ -57,7 +57,7 @@ Optional: Use an environment variable for the token:
 
 export DISCORD_TOKEN="YOUR_BOT_TOKEN_HERE"
 
-In main.py:
+In bot.py:
 
 import os
 token = os.getenv("DISCORD_TOKEN")
@@ -82,7 +82,7 @@ bot.run(token)
 Option A: Using screen (simple)
 1. sudo apt install screen
 2. screen -S animebot
-3. python3 main.py
+3. python3 bot.py
 4. Detach: Ctrl+A then D
 5. Resume: screen -r animebot
 
@@ -97,7 +97,7 @@ After=network.target
 [Service]
 User=youruser
 WorkingDirectory=/home/youruser/animebot
-ExecStart=/usr/bin/python3 /home/youruser/animebot/main.py
+ExecStart=/usr/bin/python3 /home/youruser/animebot/bot.py
 Restart=always
 
 [Install]
@@ -112,7 +112,7 @@ WantedBy=multi-user.target
 6️⃣ Logging (optional)
 Log output to a file:
 
-python3 main.py >> bot.log 2>&1 &
+python3 bot.py >> bot.log 2>&1 &
 
 ---
 

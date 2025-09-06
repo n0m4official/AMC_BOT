@@ -1,20 +1,40 @@
 import datetime
 import json
 import nextcord
-from nextcord.ext import commands, menus
+from nextcord.ext import commands
+from nextcord import ui
 
 # Load config
 with open("config.json") as f:
     config = json.load(f)
 
 # Pagination for pending members
-class PendingMenu(menus.ListPageSource):
-    def __init__(self, data):
-        super().__init__(data, per_page=10)
+class PendingView(ui.View):
+    def __init__(self, pages):
+        super().__init__(timeout=120)
+        self.pages = pages
+        self.current_page = 0
 
-    async def format_page(self, menu, page):
-        description = "\n".join(page)
-        return nextcord.Embed(title="Pending Members", description=description, color=0x00ff00)
+    async def update_message(self, interaction: nextcord.Interaction):
+        description = "\n".join(self.pages[self.current_page])
+        embed = nextcord.Embed(
+            title=f"Pending Members (Page {self.current_page+1}/{len(self.pages)})",
+            description=description,
+            color=0x00ff00
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @ui.button(label="Previous", style=nextcord.ButtonStyle.secondary)
+    async def previous(self, button: ui.Button, interaction: nextcord.Interaction):
+        if self.current_page > 0:
+            self.current_page -= 1
+            await self.update_message(interaction)
+
+    @ui.button(label="Next", style=nextcord.ButtonStyle.secondary)
+    async def next(self, button: ui.Button, interaction: nextcord.Interaction):
+        if self.current_page < len(self.pages)-1:
+            self.current_page += 1
+            await self.update_message(interaction)
 
 class MembershipManager(commands.Cog):
     def __init__(self, bot):
@@ -34,7 +54,7 @@ class MembershipManager(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: nextcord.Member):
         guild = member.guild
-        account_age = (datetime.datetime.utcnow() - member.created_at).days
+        account_age = (datetime.datetime.utcnow() - member.created_at.replace(tzinfo=None)).days
 
         flagged_role = nextcord.utils.get(guild.roles, name=config["roles"]["flagged"])
         pending_role = nextcord.utils.get(guild.roles, name=config["roles"]["pending"])
@@ -56,39 +76,40 @@ class MembershipManager(commands.Cog):
             )
             await self.safe_dm(member, "Welcome! You’ve been placed in pending verification. An admin will confirm your membership soon.")
 
-    @commands.command()
-    @commands.has_permissions(manage_roles=True)
-    async def approve(self, ctx, member: nextcord.Member):
-        """Approve a pending member and move them to Verified Member."""
-        verified_role = nextcord.utils.get(ctx.guild.roles, name=config["roles"]["verified"])
-        pending_role = nextcord.utils.get(ctx.guild.roles, name=config["roles"]["pending"])
+    @nextcord.slash_command(name="approve", description="Approve a pending member")
+    async def approve(self, interaction: nextcord.Interaction, member: nextcord.Member):
+        verified_role = nextcord.utils.get(interaction.guild.roles, name=config["roles"]["verified"])
+        pending_role = nextcord.utils.get(interaction.guild.roles, name=config["roles"]["pending"])
 
         if verified_role:
             await member.add_roles(verified_role)
         if pending_role and pending_role in member.roles:
             await member.remove_roles(pending_role)
 
-        await ctx.send(f"{member.mention} has been approved and verified.")
-        await self.notify_admins(ctx.guild, f"{member.mention} was approved by {ctx.author.mention}.")
+        await interaction.response.send_message(f"{member.mention} has been approved and verified.", ephemeral=True)
+        await self.notify_admins(interaction.guild, f"{member.mention} was approved by {interaction.user.mention}.")
         await self.safe_dm(member, "Your membership has been approved. Welcome!")
 
-    @commands.command()
-    @commands.has_permissions(manage_roles=True)
-    async def pending(self, ctx):
-        """List all members currently in the Pending role, paginated."""
-        pending_role = nextcord.utils.get(ctx.guild.roles, name=config["roles"]["pending"])
+    @nextcord.slash_command(name="pending", description="List members pending verification")
+    async def pending(self, interaction: nextcord.Interaction):
+        pending_role = nextcord.utils.get(interaction.guild.roles, name=config["roles"]["pending"])
         if not pending_role:
-            await ctx.send("Pending role not found.")
+            await interaction.response.send_message("Pending role not found.", ephemeral=True)
             return
 
         pending_members = [member.mention for member in pending_role.members]
         if not pending_members:
-            await ctx.send("There are currently no members pending verification.")
+            await interaction.response.send_message("There are currently no members pending verification.", ephemeral=True)
             return
 
-        pages = [pending_members[i:i + 10] for i in range(0, len(pending_members), 10)]
-        menu = menus.MenuPages(source=PendingMenu(pages), clear_reactions_after=True)
-        await menu.start(ctx)
+        pages = [pending_members[i:i+10] for i in range(0, len(pending_members), 10)]
+        embed = nextcord.Embed(
+            title=f"Pending Members (Page 1/{len(pages)})",
+            description="\n".join(pages[0]),
+            color=0x00ff00
+        )
+        await interaction.response.send_message(embed=embed, view=PendingView(pages), ephemeral=True)
+
 
 def setup(bot):
     bot.add_cog(MembershipManager(bot))
